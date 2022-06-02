@@ -1,9 +1,14 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+bool bounce = false;
 
 void main() {
-  runApp(const MyApp());
+  runApp(MultiProvider(
+    providers: [ChangeNotifierProvider(create: (_) => QuestionPageProvider())],
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
@@ -17,7 +22,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.yellow,
       ),
-      home: Container(child: const QuestionPage(title: 'Sample Question Page')),
+      home: Container(
+          child: const QuestionPage(title: 'Practice With Conditions')),
     );
   }
 }
@@ -36,14 +42,29 @@ class QuestionPage extends StatelessWidget {
       ),
       body: Center(
         child: Column(
-          children: const <Widget>[
+          children: <Widget>[
             QuestionPrompt(),
             Blocky(),
+            CustomPaint(
+              painter: MyPainter(),
+            ),
             SizedBox(height: 50),
-            MultipleChoiceButton(title: 'Answer 1'),
-            MultipleChoiceButton(title: 'Answer 2'),
-            MultipleChoiceButton(title: 'Answer 3'),
-            MultipleChoiceButton(title: 'Answer 4')
+            MultipleChoiceButton(
+              title: 'A: block.x == 10',
+              answer: false,
+            ),
+            MultipleChoiceButton(
+              title: 'B: block.x <= 10',
+              answer: false,
+            ),
+            MultipleChoiceButton(
+              title: 'C: block.x >= 10',
+              answer: true,
+            ),
+            MultipleChoiceButton(
+              title: 'D: block.x => 10',
+              answer: false,
+            )
           ],
         ),
       ),
@@ -65,9 +86,9 @@ class _BlockyState extends State<Blocky> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     _controller = AnimationController(
-        value: 0, vsync: this, duration: Duration(seconds: 1));
+        value: 0, vsync: this, duration: Duration(seconds: 2));
     super.initState();
-    _controller.repeat();
+    _controller.repeat(reverse: true);
   }
 
   @override
@@ -76,31 +97,56 @@ class _BlockyState extends State<Blocky> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
+  void _update() {
+    if (bounce) {
+      _controller.duration = Duration(seconds: 1);
+      _controller.repeat(reverse: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller.view,
-      builder: (context, child) {
-        // return Transform.translate(
-        //     offset: Offset(_controller.value + 100, 0), child: child);
-        return Transform.rotate(
-          angle: _controller.value * 2 * pi,
-          child: child,
+    return Consumer<QuestionPageProvider>(
+      builder: (context, value, child) {
+        _update();
+        return AnimatedBuilder(
+          animation: _controller.view,
+          builder: (context, child) {
+            if (!bounce) {
+              return Transform.translate(
+                  offset: Offset(_controller.value * 200, 0), child: child);
+            }
+            return Transform.translate(
+                offset: Offset(_controller.value * 100, 0), child: child);
+          },
+          child: Transform.translate(
+            offset: Offset(-100, 0),
+            child: SizedBox(
+                width: 100,
+                height: 100,
+                child: Container(
+                    color: Colors.grey,
+                    child: Center(child: Text('MR. BLOCKY')))),
+          ),
         );
       },
-      child: SizedBox(
-          width: 100,
-          height: 100,
-          child: Container(
-              color: Colors.grey, child: Center(child: Text('MR. BLOCKY')))),
     );
   }
 }
 
-class MultipleChoiceButton extends StatelessWidget {
+class MultipleChoiceButton extends StatefulWidget {
   final String title;
-  const MultipleChoiceButton({Key? key, required this.title}) : super(key: key);
+  final bool answer;
+  bool pressed = false;
 
+  MultipleChoiceButton({Key? key, required this.title, required this.answer})
+      : super(key: key);
+
+  @override
+  State<MultipleChoiceButton> createState() => _MultipleChoiceButtonState();
+}
+
+class _MultipleChoiceButtonState extends State<MultipleChoiceButton> {
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -109,10 +155,20 @@ class MultipleChoiceButton extends StatelessWidget {
         Container(
           width: MediaQuery.of(context).size.width,
           child: TextButton(
-              style: TextButton.styleFrom(backgroundColor: Colors.yellow[300]),
-              onPressed: () => print(title + ' Pressed!'),
+              style: TextButton.styleFrom(
+                  backgroundColor: widget.pressed
+                      ? (widget.answer ? Colors.green : Colors.red)
+                      : Colors.yellow[300]),
+              onPressed: () {
+                if (widget.answer) {
+                  bounce = true;
+                  context.read<QuestionPageProvider>().update();
+                }
+                widget.pressed = true;
+                setState(() {});
+              },
               child: Text(
-                title,
+                widget.title,
                 style: TextStyle(color: Colors.black),
               )),
         )
@@ -127,14 +183,38 @@ class QuestionPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
+      children: const [
         SizedBox(height: 50),
         Text(
-          'What is the color of the sky?',
+          'Mr. Block is stuck in a loop that bounces it back and forth. Suppose the line rests at x = 10, which of the following condition would be most appropriate to add in the loop alongside an if statement to bounce Mr. Block on the line?',
           style: TextStyle(color: Colors.yellow),
+          textAlign: TextAlign.center,
         ),
         SizedBox(height: 50),
       ],
     );
+  }
+}
+
+class MyPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p1 = Offset(50, -120);
+    final p2 = Offset(50, 20);
+    final paint = Paint()
+      ..color = Colors.amber
+      ..strokeWidth = 4;
+    canvas.drawLine(p1, p2, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter old) {
+    return false;
+  }
+}
+
+class QuestionPageProvider with ChangeNotifier {
+  void update() {
+    notifyListeners();
   }
 }
